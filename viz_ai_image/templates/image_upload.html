@@ -1,0 +1,102 @@
+<!doctype html>
+<title>Face emotions</title>
+<h1>Face emotions</h1>
+
+{#<script type=text/javascript src="{{ url_for('static', filename='js/jquery-3.3.1.min.js') }}"></script>#}
+<script type=text/javascript src="{{ url_for('static', filename='js/dropzone.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dropzone.css') }}">
+
+<form action="/face" id="upload_form" method="post" enctype="multipart/form-data" class="dropzone">
+    <div class="fallback">
+        <input name="file" type="file"/>
+    </div>
+</form>
+
+<div id="container">
+    <img id="new_img" alt="croppedImage" style="display: none;">
+    <div id="message" style="font-size: 20px;"></div>
+</div>
+
+<script type="text/javascript">
+    Dropzone.options.uploadForm = {
+        maxFilesize: 5, // MB
+        acceptedFiles: 'image/*, JPEG, JPG, PNG',
+
+        init: function() {
+            // If the file is not valid, display the error message and remove the file
+            this.on("error", function(file, e) {
+                alert(e);
+                this.removeFile(file);
+            });
+
+            this.on("success", function (file, response) {
+                // Hide the original form
+                let form = document.getElementById('upload_form');
+                form.style.display = "none";
+
+                let message = document.getElementById("message");
+                let container = document.getElementById("container");
+
+                if (response.err_msg){
+                    // No result, display the error message
+                    message.innerHTML = response.err_msg;
+                }
+
+                if (response.filename) {
+                    // In any case we create the first (big) image
+                    let orgImg = new Image();
+                    orgImg.src = response.filename;
+                    orgImg.id = 'org_img';
+                    // if to display the big image or not
+                    if (response.err_msg) {
+                        orgImg.style.display = "block";
+                    }else {
+                        orgImg.style.display = "none";
+                    }
+                    container.appendChild(orgImg);
+
+
+
+
+                    orgImg.onload = function () {
+                        // We have result, so we have a face and a feeling
+                        if (response.result) {
+                            // Draw the image to canvas and get cropped image data
+                            let canvas = document.createElement("canvas");
+                            canvas.width = orgImg.width;
+                            canvas.height = orgImg.height;
+                            let ctx = canvas.getContext("2d");
+                            ctx.drawImage(orgImg, 0, 0);
+
+                            let faceRect = response.result.faceRectangle;
+                            // Extract the data and hide the original image
+                            let imageData = ctx.getImageData(faceRect.left, faceRect.top, faceRect.width, faceRect.height);
+
+                            // Create the canvas with the copped image
+                            let canvas1 = document.createElement("canvas");
+                            canvas1.width = faceRect.width;
+                            canvas1.height = faceRect.height;
+                            let ctx1 = canvas1.getContext("2d");
+                            ctx1.rect(0, 0, faceRect.width, faceRect.height);
+                            ctx1.fillStyle = 'white';
+                            ctx1.fill();
+                            ctx1.putImageData(imageData, 0, 0);
+
+                            // Put the cropped data to the img element
+                            let newImg = document.createElement('img');
+                            newImg.src = canvas1.toDataURL("image/png");
+                            newImg.id = 'new_img';
+                            container.appendChild(newImg);
+
+                            // Display the copped image
+                            newImg.style.display = "block";
+
+                            // Add the feeling message
+                            message.innerHTML = response.result.feeling;
+                        }
+                    };
+                }
+            });
+        }
+    };
+</script>
